@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Equalizer</title>
+    <style>
+        .grid-container {
+            display: grid;
+            border: 1px solid green;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            margin: 20px;
+            width: 300px;
+            height: 300px;
+        }
+        .grid-item {
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="grid-container"></div>
+    <input type="file" accept="audio/*" id="audioFileInput" onchange="handleFileSelect(event)">
+    <label for="audioFileInput">Choose audio</label>
+    <audio id="audioPlayer" controls style="display: none;"></audio>
+
+    <script>
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            const audioPlayer = document.getElementById('audioPlayer');
+            const gridContainer = document.querySelector('.grid-container');
+            gridContainer.innerHTML = ''; // Очистить предыдущие элементы сетки
+        
+            if (files && files.length > 0) {
+                const audioFile = files[0];
+                const reader = new FileReader();
+        
+                reader.onload = function(e) {
+                    audioPlayer.src = e.target.result;
+                    audioPlayer.style.display = 'block';
+                    visualizeAudio(e.target.result);
+                };
+        
+                reader.readAsDataURL(audioFile);
+            }
+        }
+        
+        function visualizeAudio(audioSrc) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = audioContext.createAnalyser();
+            const audioElement = document.getElementById('audioPlayer');
+            const audioSource = audioContext.createMediaElementSource(audioElement);
+            
+            audioSource.connect(analyser);
+            analyser.connect(audioContext.destination);
+        
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+        
+            const gridContainer = document.querySelector('.grid-container');
+        
+            for (let i = 0; i < 36; i++) { // Изменено на 36
+                const gridItem = document.createElement('div');
+                gridItem.classList.add('grid-item');
+                gridContainer.appendChild(gridItem);
+            }
+        
+            const gridItems = document.querySelectorAll('.grid-item');
+        
+            function draw() {
+                requestAnimationFrame(draw);
+        
+                analyser.getByteFrequencyData(dataArray);
+        
+                gridItems.forEach((item, index) => {
+                    const value = dataArray[index];
+                    let row = 5 - Math.floor(index / 6); // Нижние строки для тихих звуков
+                    if (row < 0) row = 0; // Чтобы не выйти за границы сетки
+                    const col = index % 6; // Номер столбца
+                    const scaledValue = value * (row + 1) / 256; // Масштабирование значения
+                    if (scaledValue > 0.2) { // Увеличенная нижняя граница громкости до 0.2
+                        const color = `rgb(0, 0, ${Math.floor(scaledValue * 255)})`;
+                        item.style.backgroundColor = color;
+                    } else {
+                        item.style.backgroundColor = '#ffffff'; // Белый цвет для ячеек с низкой мощностью
+                    }
+                    item.style.gridRowStart = row + 1; // Устанавливаем начальный ряд ячейки
+                    item.style.gridColumnStart = col + 1; // Устанавливаем начальную колонку ячейки
+                });
+            }
+        
+            draw();
+        }
+    </script>
+
+</body>
+</html>
